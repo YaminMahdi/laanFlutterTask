@@ -110,5 +110,55 @@ void main() {
 
       expect(retried, isTrue);
     });
+
+    testWidgets('does not render LinearProgressIndicator when status is completed',
+        (tester) async {
+      final task = TransferTask(
+        id: 'widget_task_completed',
+        fileName: 'report.pdf',
+        originalName: 'report.pdf',
+        type: TransferType.download,
+        status: TransferStatus.completed,
+        bytesTransferred: 50 * 1024 * 1024,
+        totalBytes: 50 * 1024 * 1024,
+        createdAt: DateTime.now(),
+        completedAt: DateTime.now(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TransferProgressCard(task: task),
+          ),
+        ),
+      );
+
+      expect(find.text('Completed'), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+    });
+
+    testWidgets('does not render LinearProgressIndicator when progress is 100%',
+        (tester) async {
+      final task = TransferTask(
+        id: 'widget_task_100pct',
+        fileName: 'archive.zip',
+        originalName: 'archive.zip',
+        type: TransferType.upload,
+        status: TransferStatus.running,
+        bytesTransferred: 100,
+        totalBytes: 100,
+        createdAt: DateTime.now(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TransferProgressCard(task: task),
+          ),
+        ),
+      );
+
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+    });
   });
 }

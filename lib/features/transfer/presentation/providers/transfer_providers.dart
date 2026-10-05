@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../../core/database/downloaded_file_dao.dart';
+import '../../../../core/database/downloaded_file_entity.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../auth/data/auth_api_service.dart';
 import '../../../auth/data/token_storage.dart';
@@ -21,9 +23,15 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   throw UnimplementedError('databaseProvider must be overridden in ProviderScope');
 });
 
+// Downloaded File DAO
+final downloadedFileDaoProvider = Provider<DownloadedFileDao>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.downloadedFileDao;
+});
+
 // Token Storage
 final tokenStorageProvider = Provider<TokenStorage>((ref) {
-  return InMemoryTokenStorage();
+  return SecureTokenStorage();
 });
 
 // ApiClient
@@ -54,9 +62,11 @@ final transferLocalDataSourceProvider = Provider<TransferLocalDataSource>((ref) 
 final transferWorkerProvider = Provider<TransferWorker>((ref) {
   final apiService = ref.watch(transferApiServiceProvider);
   final localDataSource = ref.watch(transferLocalDataSourceProvider);
+  final downloadedDao = ref.watch(downloadedFileDaoProvider);
   return TransferWorker(
     apiService: apiService,
     localDataSource: localDataSource,
+    downloadedFileDao: downloadedDao,
   );
 });
 
@@ -65,11 +75,13 @@ final transferRepositoryProvider = Provider<TransferRepository>((ref) {
   final apiService = ref.watch(transferApiServiceProvider);
   final localDataSource = ref.watch(transferLocalDataSourceProvider);
   final worker = ref.watch(transferWorkerProvider);
+  final downloadedDao = ref.watch(downloadedFileDaoProvider);
 
   return TransferRepositoryImpl(
     apiService: apiService,
     localDataSource: localDataSource,
     worker: worker,
+    downloadedFileDao: downloadedDao,
   );
 });
 
@@ -100,4 +112,18 @@ final getRemoteFilesUseCaseProvider = Provider<GetRemoteFilesUseCase>((ref) {
 
 final deleteRemoteFileUseCaseProvider = Provider<DeleteRemoteFileUseCase>((ref) {
   return DeleteRemoteFileUseCase(ref.watch(transferRepositoryProvider));
+});
+
+// Downloaded Files Providers
+final downloadedFilesStreamProvider = StreamProvider<List<DownloadedFileEntity>>((ref) {
+  final repo = ref.watch(transferRepositoryProvider);
+  return repo.watchDownloadedFiles();
+});
+
+final downloadedFilesMapProvider = Provider<Map<int, DownloadedFileEntity>>((ref) {
+  final asyncFiles = ref.watch(downloadedFilesStreamProvider);
+  return asyncFiles.maybeWhen(
+    data: (files) => {for (final f in files) f.fileId: f},
+    orElse: () => {},
+  );
 });

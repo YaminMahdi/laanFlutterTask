@@ -47,18 +47,37 @@ class TransferProgressCard extends StatelessWidget {
 
   void _openFile(BuildContext context) async {
     if (task.localPath != null && await File(task.localPath!).exists()) {
-      final result = await OpenFilex.open(task.localPath!);
-      if (result.type != ResultType.done && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open file: ${result.message}')),
-        );
+      try {
+        final result = await OpenFilex.open(task.localPath!);
+        if (result.type != ResultType.done && context.mounted) {
+          final msg = result.type == ResultType.noAppToOpen
+              ? 'No application found to open this file.'
+              : 'Could not open file: ${result.message}';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg)),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to open file: $e')),
+          );
+        }
       }
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File not found on device storage.')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final statusColor = _getStatusColor(context);
+    final isFinished = task.status.isCompleted ||
+        task.status.isCancelled ||
+        task.progressPercentage >= 100 ||
+        task.progress >= 1.0;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -130,18 +149,18 @@ class TransferProgressCard extends StatelessWidget {
                 _buildActionButtons(context),
               ],
             ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: task.status.isCompleted
-                    ? 1.0
-                    : (task.status.isFailed ? 0.0 : task.progress),
-                backgroundColor: Colors.grey.shade200,
-                color: statusColor,
-                minHeight: 6,
+            if (!isFinished) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: task.status.isFailed ? 0.0 : task.progress,
+                  backgroundColor: Colors.grey.shade200,
+                  color: statusColor,
+                  minHeight: 6,
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

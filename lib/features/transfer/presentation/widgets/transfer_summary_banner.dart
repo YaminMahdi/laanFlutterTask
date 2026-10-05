@@ -70,16 +70,18 @@ class TransferSummaryBanner extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: LinearProgressIndicator(
-                  value: aggregateProgress,
-                  backgroundColor: Colors.white24,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                  minHeight: 3,
+              if (aggregateProgress < 1.0) ...[
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: aggregateProgress,
+                    backgroundColor: Colors.white24,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                    minHeight: 3,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

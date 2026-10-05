@@ -16,6 +16,7 @@ class TransferTask {
     this.speedBytesPerSecond = 0,
     this.errorMessage,
     this.completedAt,
+    this.fileId,
   });
 
   final String id;
@@ -31,6 +32,7 @@ class TransferTask {
   final String? errorMessage;
   final DateTime createdAt;
   final DateTime? completedAt;
+  final int? fileId;
 
   double get progress {
     if (totalBytes <= 0) return 0.0;
@@ -80,6 +82,7 @@ class TransferTask {
     String? errorMessage,
     DateTime? createdAt,
     DateTime? completedAt,
+    int? fileId,
   }) {
     return TransferTask(
       id: id ?? this.id,
@@ -95,6 +98,7 @@ class TransferTask {
       errorMessage: errorMessage ?? this.errorMessage,
       createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,
+      fileId: fileId ?? this.fileId,
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import '../../../../core/constants/api_constants.dart';
 import '../../domain/entities/transfer_type.dart';
 import '../notifiers/transfer_queue_notifier.dart';
 import '../widgets/transfer_progress_card.dart';
@@ -21,6 +22,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   int _selectedFileSize = 0;
   String? _currentTaskId;
   bool _isPicking = false;
+  String? _fileValidationError;
 
   String _formatBytes(int bytes) {
     if (bytes <= 0) return '0 B';
@@ -38,15 +40,38 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     setState(() => _isPicking = true);
     try {
       final result = await FilePicker.pickFiles(
-        type: FileType.any,
+        type: FileType.custom,
+        allowedExtensions: ApiConstants.allowedUploadExtensions,
       );
 
       if (result.isNotEmpty && result.first.path != null) {
-        final file = File(result.first.path!);
+        final filePath = result.first.path!;
+        final fileName = p.basename(filePath);
+
+        if (!ApiConstants.isAllowedUploadExtension(fileName)) {
+          setState(() {
+            _selectedFile = null;
+            _selectedFileSize = 0;
+            _fileValidationError = ApiConstants.fileTypeNotAllowedMessage;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ApiConstants.fileTypeNotAllowedMessage),
+                backgroundColor: Theme.of(context).colorScheme.error,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
+        }
+
+        final file = File(filePath);
         final size = await file.length();
         setState(() {
           _selectedFile = file;
           _selectedFileSize = size;
+          _fileValidationError = null;
         });
       }
     } catch (e) {
@@ -65,19 +90,49 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   Future<void> _startUpload() async {
     if (_selectedFile == null) return;
 
-    final notifier = ref.read(transferQueueProvider.notifier);
-    final taskId = await notifier.upload(_selectedFile!);
-    setState(() {
-      _currentTaskId = taskId;
-    });
+    if (!ApiConstants.isAllowedUploadExtension(_selectedFile!.path)) {
+      setState(() {
+        _fileValidationError = ApiConstants.fileTypeNotAllowedMessage;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiConstants.fileTypeNotAllowedMessage),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Upload started. Will progress in background if minimized.'),
-          duration: Duration(seconds: 3),
-        ),
-      );
+    try {
+      final notifier = ref.read(transferQueueProvider.notifier);
+      final taskId = await notifier.upload(_selectedFile!);
+      setState(() {
+        _currentTaskId = taskId;
+        _fileValidationError = null;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload started. Will progress in background if minimized.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorMsg = e is ArgumentError ? e.message.toString() : 'Upload failed: $e';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -190,7 +245,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                               Text(
                                 _selectedFile != null
                                     ? 'Size: ${_formatBytes(_selectedFileSize)}'
-                                    : 'Supports all formats (>50MB video, CSV, photos)',
+                                    : 'Supported: JPG, PNG, PDF, CSV, DOC, XLS, ZIP, JSON, MP4, MP3',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey.shade600,
@@ -201,6 +256,40 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                         ),
                       ),
                     ),
+                    if (_fileValidationError != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Theme.of(context).colorScheme.error,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _fileValidationError!,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     // Upload button
                     SizedBox(
@@ -208,7 +297,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.cloud_upload_outlined),
                         label: const Text('Start Background Upload'),
-                        onPressed: _selectedFile == null ? null : _startUpload,
+                        onPressed: (_selectedFile == null || _fileValidationError != null)
+                            ? null
+                            : _startUpload,
                       ),
                     ),
                   ],

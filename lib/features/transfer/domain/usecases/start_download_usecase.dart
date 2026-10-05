@@ -8,11 +8,15 @@ class StartDownloadUseCase {
     required String fileUrl,
     required String fileName,
     int? totalSize,
+    int? fileId,
+    String? originalName,
   }) {
     return _repository.startDownload(
       fileUrl: fileUrl,
       fileName: fileName,
       totalSize: totalSize,
+      fileId: fileId,
+      originalName: originalName,
     );
   }
 }

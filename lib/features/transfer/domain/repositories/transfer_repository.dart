@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../../core/database/downloaded_file_entity.dart';
 import '../entities/remote_file_item.dart';
 import '../entities/transfer_task.dart';
 
@@ -12,6 +13,8 @@ abstract class TransferRepository {
     required String fileUrl,
     required String fileName,
     int? totalSize,
+    int? fileId,
+    String? originalName,
   });
 
   Future<void> pauseTransfer(String id);
@@ -22,4 +25,9 @@ abstract class TransferRepository {
 
   Future<List<RemoteFileItem>> getRemoteFiles();
   Future<bool> deleteRemoteFile(String fileName);
+
+  Stream<List<DownloadedFileEntity>> watchDownloadedFiles();
+  Future<List<DownloadedFileEntity>> getDownloadedFiles();
+  Future<DownloadedFileEntity?> getDownloadedFile(int fileId);
+  Future<void> deleteDownloadedFile(int fileId);
 }

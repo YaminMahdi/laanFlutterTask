@@ -64,13 +64,12 @@ lib/
 │           ├── widgets/
 │           │   ├── transfer_progress_card.dart  # Real-time progress card with pause/resume
 │           │   ├── transfer_summary_banner.dart # Persistent floating status banner
-│           │   ├── pos_transfer_drawer.dart     # POS slide-over transfer manager
 │           │   └── file_item_card.dart          # Remote catalog item card with thumbnails
 │           └── screens/
 │               ├── dashboard_screen.dart        # Adaptive POS master-detail / tab shell
 │               ├── upload_screen.dart           # File picking (>50MB) and upload flow
 │               ├── download_screen.dart         # Catalog browser and resumable downloads
-│               └── transfer_queue_screen.dart   # Queue management and history
+│               └── transfer_queue_screen.dart   # Consolidated Transfer Manager & Queue
 └── main.dart                                    # App entry point, services bootstrap
 ```
 

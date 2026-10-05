@@ -1,10 +1,12 @@
 import 'dart:io';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 typedef NotificationTapCallback = void Function(String? payload);
 
 class NotificationService {
   NotificationService._();
+
   static final NotificationService instance = NotificationService._();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
@@ -24,11 +26,15 @@ class NotificationService {
 
   bool _isInitialized = false;
 
-  Future<void> initialize({NotificationTapCallback? onNotificationTapped}) async {
+  Future<void> initialize({
+    NotificationTapCallback? onNotificationTapped,
+  }) async {
     if (_isInitialized) return;
     this.onNotificationTapped = onNotificationTapped;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -46,7 +52,7 @@ class NotificationService {
     );
 
     await _notificationsPlugin.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: (response) {
         this.onNotificationTapped?.call(response.payload);
       },
@@ -54,8 +60,7 @@ class NotificationService {
 
     if (Platform.isAndroid) {
       final androidImplementation = _notificationsPlugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
       await androidImplementation?.createNotificationChannel(
         const AndroidNotificationChannel(
@@ -118,10 +123,10 @@ class NotificationService {
 
     final notificationDetails = NotificationDetails(android: androidDetails);
     await _notificationsPlugin.show(
-      notificationId,
-      title,
-      body,
-      notificationDetails,
+      id: notificationId,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
       payload: id,
     );
   }
@@ -150,10 +155,10 @@ class NotificationService {
 
     const notificationDetails = NotificationDetails(android: androidDetails);
     await _notificationsPlugin.show(
-      notificationId + 500000,
-      title,
-      body,
-      notificationDetails,
+      id: notificationId + 500000,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
       payload: payload ?? id,
     );
   }
@@ -180,10 +185,10 @@ class NotificationService {
 
     const notificationDetails = NotificationDetails(android: androidDetails);
     await _notificationsPlugin.show(
-      notificationId + 500000,
-      title,
-      body,
-      notificationDetails,
+      id: notificationId + 500000,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
       payload: id,
     );
   }
@@ -191,7 +196,7 @@ class NotificationService {
   Future<void> cancelNotification(String id) async {
     if (!_isInitialized) return;
     final notificationId = _getNotificationId(id);
-    await _notificationsPlugin.cancel(notificationId);
+    await _notificationsPlugin.cancel(id: notificationId);
   }
 
   Future<void> cancelAll() async {

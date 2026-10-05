@@ -13,6 +13,7 @@ class TransferEntity {
     this.speedBytesPerSecond = 0,
     this.errorMessage,
     this.completedAt,
+    this.fileId,
   });
 
   final String id;
@@ -28,6 +29,7 @@ class TransferEntity {
   final String? errorMessage;
   final int createdAt; // epoch milliseconds
   final int? completedAt; // epoch milliseconds
+  final int? fileId;
 
   Map<String, dynamic> toMap() {
     return {
@@ -44,6 +46,7 @@ class TransferEntity {
       'errorMessage': errorMessage,
       'createdAt': createdAt,
       'completedAt': completedAt,
+      'fileId': fileId,
     };
   }
 
@@ -62,6 +65,7 @@ class TransferEntity {
       errorMessage: map['errorMessage'] as String?,
       createdAt: (map['createdAt'] as num).toInt(),
       completedAt: (map['completedAt'] as num?)?.toInt(),
+      fileId: (map['fileId'] as num?)?.toInt(),
     );
   }
 
@@ -79,6 +83,7 @@ class TransferEntity {
     String? errorMessage,
     int? createdAt,
     int? completedAt,
+    int? fileId,
   }) {
     return TransferEntity(
       id: id ?? this.id,
@@ -94,6 +99,7 @@ class TransferEntity {
       errorMessage: errorMessage ?? this.errorMessage,
       createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,
+      fileId: fileId ?? this.fileId,
     );
   }
 }

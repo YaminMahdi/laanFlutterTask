@@ -50,6 +50,7 @@ class TransferLocalDataSourceImpl implements TransferLocalDataSource {
       completedAt: entity.completedAt != null
           ? DateTime.fromMillisecondsSinceEpoch(entity.completedAt!)
           : null,
+      fileId: entity.fileId,
     );
   }
 
@@ -68,6 +69,7 @@ class TransferLocalDataSourceImpl implements TransferLocalDataSource {
       errorMessage: task.errorMessage,
       createdAt: task.createdAt.millisecondsSinceEpoch,
       completedAt: task.completedAt?.millisecondsSinceEpoch,
+      fileId: task.fileId,
     );
   }
 

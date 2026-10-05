@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../domain/entities/remote_file_item.dart';
 import '../../domain/entities/transfer_type.dart';
 import '../notifiers/file_list_notifier.dart';
 import '../notifiers/transfer_queue_notifier.dart';
+import '../providers/transfer_providers.dart';
 import '../widgets/file_item_card.dart';
 import '../widgets/transfer_progress_card.dart';
 
@@ -24,6 +27,36 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openDownloadedFile(BuildContext context, String localPath) async {
+    final file = File(localPath);
+    if (!await file.exists()) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File not found on device storage.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final result = await OpenFilex.open(localPath);
+      if (result.type != ResultType.done && context.mounted) {
+        final message = result.type == ResultType.noAppToOpen
+            ? 'No application found to open this file type.'
+            : 'Could not open file: ${result.message}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to open file: $e')),
+        );
+      }
+    }
   }
 
   void _confirmDelete(BuildContext context, RemoteFileItem file) {
@@ -67,6 +100,7 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
     final fileListAsync = ref.watch(fileListProvider);
     final allTransfers = ref.watch(transferQueueProvider);
     final queueNotifier = ref.read(transferQueueProvider.notifier);
+    final downloadedFilesMap = ref.watch(downloadedFilesMapProvider);
 
     final activeDownloads = allTransfers
         .where((t) => t.type == TransferType.download && t.status.isActive)
@@ -154,29 +188,43 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
                   childCount: activeDownloads.length,
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              const SliverToBoxAdapter(child: Divider(height: 24)),
             ],
-            // Catalog Files header
-            const SliverToBoxAdapter(
+            // Remote files section header
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(
-                  'Server File Catalog',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Server Files',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'Refresh file list',
+                      onPressed: () =>
+                          ref.read(fileListProvider.notifier).refresh(),
+                    ),
+                  ],
                 ),
               ),
             ),
-            // File list state handling
+            // Files list
             fileListAsync.when(
               data: (files) {
                 final filtered = files.where((f) {
                   if (_searchQuery.isEmpty) return true;
                   return f.originalName
-                      .toLowerCase()
-                      .contains(_searchQuery.toLowerCase());
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase()) ||
+                      f.name
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase());
                 }).toList();
 
                 if (filtered.isEmpty) {
@@ -219,23 +267,58 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
                             t.status.isActive;
                       }).firstOrNull;
 
+                      // Check if already downloaded
+                      final downloadedEntity = downloadedFilesMap[file.id];
+                      final isDownloaded = downloadedEntity != null &&
+                          File(downloadedEntity.localPath).existsSync();
+
                       return FileItemCard(
                         file: file,
                         isDownloading: matchingTask != null,
                         downloadProgress: matchingTask?.progress ?? 0.0,
+                        isDownloaded: isDownloaded,
+                        onOpen: isDownloaded
+                            ? () => _openDownloadedFile(
+                                  context,
+                                  downloadedEntity.localPath,
+                                )
+                            : null,
                         onDownload: () async {
-                          await queueNotifier.download(
-                            fileUrl: file.url,
-                            fileName: file.name,
-                            totalSize: file.size,
-                          );
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Downloading ${file.originalName} in background'),
-                                duration: const Duration(seconds: 2),
-                              ),
+                          if (isDownloaded) {
+                            await _openDownloadedFile(
+                              context,
+                              downloadedEntity.localPath,
                             );
+                            return;
+                          }
+                          try {
+                            await queueNotifier.download(
+                              fileUrl: file.url,
+                              fileName: file.name,
+                              totalSize: file.size,
+                              fileId: file.id,
+                              originalName: file.originalName,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Downloading ${file.originalName} in background',
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString()),
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.error,
+                                ),
+                              );
+                            }
                           }
                         },
                         onDelete: () => _confirmDelete(context, file),

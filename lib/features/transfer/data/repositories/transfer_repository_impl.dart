@@ -1,5 +1,8 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import '../../../../core/constants/api_constants.dart';
+import '../../../../core/database/downloaded_file_dao.dart';
+import '../../../../core/database/downloaded_file_entity.dart';
 import '../../domain/entities/remote_file_item.dart';
 import '../../domain/entities/transfer_status.dart';
 import '../../domain/entities/transfer_task.dart';
@@ -14,11 +17,13 @@ class TransferRepositoryImpl implements TransferRepository {
     required this.apiService,
     required this.localDataSource,
     required this.worker,
+    required this.downloadedFileDao,
   });
 
   final TransferApiService apiService;
   final TransferLocalDataSource localDataSource;
   final TransferWorker worker;
+  final DownloadedFileDao downloadedFileDao;
 
   String _generateId() {
     return '${DateTime.now().millisecondsSinceEpoch}_${(1000 + DateTime.now().microsecond % 9000)}';
@@ -38,8 +43,12 @@ class TransferRepositoryImpl implements TransferRepository {
 
   @override
   Future<String> startUpload(File file) async {
-    final id = _generateId();
     final originalName = p.basename(file.path);
+    if (!ApiConstants.isAllowedUploadExtension(originalName)) {
+      throw ArgumentError(ApiConstants.fileTypeNotAllowedMessage);
+    }
+
+    final id = _generateId();
     final totalBytes = await file.length();
 
     final task = TransferTask(
@@ -67,14 +76,41 @@ class TransferRepositoryImpl implements TransferRepository {
     required String fileUrl,
     required String fileName,
     int? totalSize,
+    int? fileId,
+    String? originalName,
   }) async {
+    // Check if already downloaded in local database and file exists on disk
+    if (fileId != null) {
+      final downloaded = await downloadedFileDao.getDownloadedFileById(fileId);
+      if (downloaded != null) {
+        final localFile = File(downloaded.localPath);
+        if (await localFile.exists()) {
+          throw StateError('File is already downloaded: ${downloaded.originalName}');
+        } else {
+          // File was removed from disk, purge stale entry so user can re-download
+          await downloadedFileDao.deleteDownloadedFile(fileId);
+        }
+      }
+    } else {
+      final downloaded = await downloadedFileDao.getDownloadedFileByName(fileName);
+      if (downloaded != null) {
+        final localFile = File(downloaded.localPath);
+        if (await localFile.exists()) {
+          throw StateError('File is already downloaded: ${downloaded.originalName}');
+        } else {
+          await downloadedFileDao.deleteDownloadedFile(downloaded.fileId);
+        }
+      }
+    }
+
     final id = _generateId();
 
     final task = TransferTask(
       id: id,
       fileName: fileName,
-      originalName: fileName,
+      originalName: originalName ?? fileName,
       fileUrl: fileUrl,
+      fileId: fileId,
       type: TransferType.download,
       status: TransferStatus.queued,
       bytesTransferred: 0,
@@ -137,6 +173,22 @@ class TransferRepositoryImpl implements TransferRepository {
   @override
   Future<bool> deleteRemoteFile(String fileName) =>
       apiService.deleteFile(fileName);
+
+  @override
+  Stream<List<DownloadedFileEntity>> watchDownloadedFiles() =>
+      downloadedFileDao.watchAllDownloadedFiles();
+
+  @override
+  Future<List<DownloadedFileEntity>> getDownloadedFiles() =>
+      downloadedFileDao.getAllDownloadedFiles();
+
+  @override
+  Future<DownloadedFileEntity?> getDownloadedFile(int fileId) =>
+      downloadedFileDao.getDownloadedFileById(fileId);
+
+  @override
+  Future<void> deleteDownloadedFile(int fileId) =>
+      downloadedFileDao.deleteDownloadedFile(fileId);
 }
 
 void unawaited(Future<void> future) {}

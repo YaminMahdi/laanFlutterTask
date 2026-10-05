@@ -6,7 +6,11 @@ plugins {
 
 android {
     namespace = "com.laantech.pos.laan_task"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -35,7 +39,7 @@ kotlin {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
 flutter {

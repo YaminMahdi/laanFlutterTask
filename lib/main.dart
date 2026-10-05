@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:open_filex/open_filex.dart';
 import 'core/database/app_database.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/router/app_router.dart';
@@ -28,8 +30,14 @@ void main() async {
 
   // Initialize system tray notification service
   await NotificationService.instance.initialize(
-    onNotificationTapped: (payload) {
-      // Tapping notification brings app to foreground
+    onNotificationTapped: (payload) async {
+      // Tapping notification opens file with system chooser if payload is a file path
+      if (payload != null && payload.isNotEmpty) {
+        final file = File(payload);
+        if (await file.exists()) {
+          await OpenFilex.open(payload);
+        }
+      }
     },
   );
 

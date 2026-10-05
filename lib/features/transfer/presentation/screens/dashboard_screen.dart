@@ -2,9 +2,9 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../auth/presentation/auth_notifier.dart';
 import '../notifiers/transfer_queue_notifier.dart';
-import '../widgets/pos_transfer_drawer.dart';
 import '../widgets/pos_user_drawer.dart';
 import '../widgets/transfer_summary_banner.dart';
 import 'download_screen.dart';
@@ -35,25 +35,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final List<String> _titles = const [
     'POS File Upload',
     'Catalog & Downloads',
-    'Transfer Queue',
+    'Transfer Manager'
   ];
 
   void _onPopInvokedWithResult(bool didPop, dynamic result) {
     if (didPop) return;
 
-    // 1. If end drawer (Transfer Manager) is open, close it
-    if (_scaffoldKey.currentState?.isEndDrawerOpen == true) {
-      _scaffoldKey.currentState?.closeEndDrawer();
-      return;
-    }
-
-    // 2. If left drawer (User Profile) is open, close it
+    // 1. If left drawer (User Profile) is open, close it
     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
       _scaffoldKey.currentState?.closeDrawer();
       return;
     }
 
-    // 3. If on secondary tab, return to primary Upload tab
+    // 2. If on secondary tab, return to primary Upload tab
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
       return;
@@ -81,6 +75,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final activeTransfers = ref.watch(activeTransfersProvider);
     final authState = ref.watch(authNotifierProvider);
 
+    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
+      if (!next.isLoggedIn && (previous?.isLoggedIn ?? false)) {
+        context.router.replace(const SignInRoute());
+      }
+    });
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: _onPopInvokedWithResult,
@@ -90,13 +90,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
           return Scaffold(
             key: _scaffoldKey,
-            drawer: PosUserDrawer(
-              currentIndex: _currentIndex,
-              onSelectTab: (index) {
-                setState(() => _currentIndex = index);
-              },
-            ),
-            endDrawer: const PosTransferDrawer(),
+            drawer: const PosUserDrawer(),
             appBar: AppBar(
               leading: IconButton(
                 icon: const Icon(Icons.menu),
@@ -123,39 +117,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
               actions: [
-                // Transfer queue button with badge
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.sync_alt),
-                      tooltip: 'Transfer Manager',
-                      onPressed: () {
-                        _scaffoldKey.currentState?.openEndDrawer();
-                      },
-                    ),
-                    if (activeTransfers.isNotEmpty)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.blueAccent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '${activeTransfers.length}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                if (_currentIndex == 2)
+                  IconButton(
+                    icon: const Icon(Icons.cleaning_services_outlined),
+                    tooltip: 'Clear Finished Transfers',
+                    onPressed: () =>
+                        ref.read(transferQueueProvider.notifier).clearCompleted(),
+                  ),
                 const SizedBox(width: 8),
               ],
             ),
@@ -169,12 +137,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ? _buildTabletLayout()
                         : _screens[_currentIndex],
                   ),
-                  // Persistent floating summary banner accessible anywhere in the app
-                  TransferSummaryBanner(
-                    onTap: () {
-                      _scaffoldKey.currentState?.openEndDrawer();
-                    },
-                  ),
+                  // Persistent floating summary banner accessible on other tabs
+                  if (_currentIndex != 2)
+                    TransferSummaryBanner(
+                      onTap: () {
+                        setState(() => _currentIndex = 2);
+                      },
+                    ),
                 ],
               ),
             ),
@@ -209,7 +178,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             label: Text('${activeTransfers.length}'),
                             child: const Icon(Icons.list_alt),
                           ),
-                          label: 'Queue',
+                          label: 'Transfers',
                         ),
                       ],
                     ),
@@ -247,7 +216,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             NavigationRailDestination(
               icon: Icon(Icons.list_alt_outlined),
               selectedIcon: Icon(Icons.list_alt),
-              label: Text('Queue'),
+              label: Text('Transfers'),
             ),
           ],
         ),

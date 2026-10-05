@@ -20,7 +20,29 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    _usernameController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onFieldChanged);
+    _confirmPasswordController.addListener(_onFieldChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(authNotifierProvider.notifier).clearError();
+      }
+    });
+  }
+
+  void _onFieldChanged() {
+    if (ref.read(authNotifierProvider).errorMessage != null) {
+      ref.read(authNotifierProvider.notifier).clearError();
+    }
+  }
+
+  @override
   void dispose() {
+    _usernameController.removeListener(_onFieldChanged);
+    _passwordController.removeListener(_onFieldChanged);
+    _confirmPasswordController.removeListener(_onFieldChanged);
     _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -44,10 +66,23 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-      ),
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          ref.read(authNotifierProvider.notifier).clearError();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Create Account'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              ref.read(authNotifierProvider.notifier).clearError();
+              context.router.pop();
+            },
+          ),
+        ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -197,6 +232,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         ),
                         TextButton(
                           onPressed: () {
+                            ref.read(authNotifierProvider.notifier).clearError();
                             context.router.pop();
                           },
                           child: const Text('Sign In'),
@@ -210,6 +246,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

@@ -31,12 +31,16 @@ class TransferQueueNotifier extends Notifier<List<TransferTask>> {
     required String fileUrl,
     required String fileName,
     int? totalSize,
+    int? fileId,
+    String? originalName,
   }) async {
     final useCase = ref.read(startDownloadUseCaseProvider);
     return useCase(
       fileUrl: fileUrl,
       fileName: fileName,
       totalSize: totalSize,
+      fileId: fileId,
+      originalName: originalName,
     );
   }
 
@@ -63,6 +67,20 @@ class TransferQueueNotifier extends Notifier<List<TransferTask>> {
   Future<void> clearCompleted() async {
     final repo = ref.read(transferRepositoryProvider);
     await repo.clearCompletedTransfers();
+  }
+
+  Future<void> pauseAll() async {
+    final active = state.where((t) => t.status.isActive).toList();
+    for (final task in active) {
+      await pause(task.id);
+    }
+  }
+
+  Future<void> resumeAll() async {
+    final paused = state.where((t) => t.status.isPaused).toList();
+    for (final task in paused) {
+      await resume(task.id);
+    }
   }
 }
 

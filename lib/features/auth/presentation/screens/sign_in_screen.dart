@@ -19,15 +19,35 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    _usernameController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onFieldChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(authNotifierProvider.notifier).clearError();
+      }
+    });
+  }
+
+  void _onFieldChanged() {
+    if (ref.read(authNotifierProvider).errorMessage != null) {
+      ref.read(authNotifierProvider.notifier).clearError();
+    }
+  }
+
+  @override
   void dispose() {
+    _usernameController.removeListener(_onFieldChanged);
+    _passwordController.removeListener(_onFieldChanged);
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   void _fillDemoCredentials() {
-    _usernameController.text = 'mahdi_pos';
-    _passwordController.text = 'mahdiii123';
+    _usernameController.text = 'mahdi';
+    _passwordController.text = 'mahdii';
   }
 
   Future<void> _handleSignIn() async {
@@ -46,6 +66,33 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
+
+    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
+      if (next.isLoggedIn && !(previous?.isLoggedIn ?? false)) {
+        context.router.replace(const DashboardRoute());
+      }
+    });
+
+    if (!authState.isInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (authState.isLoggedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ref.read(authNotifierProvider).isLoggedIn) {
+          context.router.replace(const DashboardRoute());
+        }
+      });
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -197,8 +244,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           style: TextStyle(color: Colors.grey.shade700),
                         ),
                         TextButton(
-                          onPressed: () {
-                            context.router.push(const SignUpRoute());
+                          onPressed: () async {
+                            ref.read(authNotifierProvider.notifier).clearError();
+                            await context.router.push(const SignUpRoute());
+                            if (mounted) {
+                              ref.read(authNotifierProvider.notifier).clearError();
+                            }
                           },
                           child: const Text('Sign Up'),
                         ),
