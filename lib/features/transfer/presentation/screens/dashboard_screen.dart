@@ -1,9 +1,11 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/presentation/auth_notifier.dart';
 import '../notifiers/transfer_queue_notifier.dart';
 import '../widgets/pos_transfer_drawer.dart';
+import '../widgets/pos_user_drawer.dart';
 import '../widgets/transfer_summary_banner.dart';
 import 'download_screen.dart';
 import 'transfer_queue_screen.dart';
@@ -22,6 +24,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  DateTime? _lastBackPressTime;
 
   final List<Widget> _screens = const [
     UploadScreen(),
@@ -35,123 +38,185 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     'Transfer Queue',
   ];
 
+  void _onPopInvokedWithResult(bool didPop, dynamic result) {
+    if (didPop) return;
+
+    // 1. If end drawer (Transfer Manager) is open, close it
+    if (_scaffoldKey.currentState?.isEndDrawerOpen == true) {
+      _scaffoldKey.currentState?.closeEndDrawer();
+      return;
+    }
+
+    // 2. If left drawer (User Profile) is open, close it
+    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+      _scaffoldKey.currentState?.closeDrawer();
+      return;
+    }
+
+    // 3. If on secondary tab, return to primary Upload tab
+    if (_currentIndex != 0) {
+      setState(() => _currentIndex = 0);
+      return;
+    }
+
+    // 4. Double-tap back within 2 seconds to exit POS app
+    final now = DateTime.now();
+    if (_lastBackPressTime == null ||
+        now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+      _lastBackPressTime = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit POS'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    SystemNavigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeTransfers = ref.watch(activeTransfersProvider);
     final authState = ref.watch(authNotifierProvider);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isLargeScreen = constraints.maxWidth >= largeScreenMinWidth;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _onPopInvokedWithResult,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isLargeScreen = constraints.maxWidth >= largeScreenMinWidth;
 
-        return Scaffold(
-          key: _scaffoldKey,
-          endDrawer: const PosTransferDrawer(),
-          appBar: AppBar(
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _titles[_currentIndex],
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-                ),
-                Text(
-                  'Logged in as: ${authState.username ?? 'mahdi'}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-              ],
+          return Scaffold(
+            key: _scaffoldKey,
+            drawer: PosUserDrawer(
+              currentIndex: _currentIndex,
+              onSelectTab: (index) {
+                setState(() => _currentIndex = index);
+              },
             ),
-            actions: [
-              // Transfer queue button with badge
-              Stack(
-                alignment: Alignment.center,
+            endDrawer: const PosTransferDrawer(),
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                tooltip: 'Open POS Menu',
+                onPressed: () {
+                  _scaffoldKey.currentState?.openDrawer();
+                },
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.sync_alt),
-                    tooltip: 'Transfer Manager',
-                    onPressed: () {
-                      _scaffoldKey.currentState?.openEndDrawer();
-                    },
+                  Text(
+                    _titles[_currentIndex],
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                   ),
-                  if (activeTransfers.isNotEmpty)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.blueAccent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '${activeTransfers.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                  Text(
+                    'Operator: ${authState.username ?? 'Operator'}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                // Transfer queue button with badge
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.sync_alt),
+                      tooltip: 'Transfer Manager',
+                      onPressed: () {
+                        _scaffoldKey.currentState?.openEndDrawer();
+                      },
+                    ),
+                    if (activeTransfers.isNotEmpty)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.blueAccent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${activeTransfers.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: Column(
-            children: [
-              Expanded(
-                child: isLargeScreen
-                    ? _buildTabletLayout()
-                    : _screens[_currentIndex],
-              ),
-              // Persistent floating summary banner accessible anywhere in the app
-              TransferSummaryBanner(
-                onTap: () {
-                  _scaffoldKey.currentState?.openEndDrawer();
-                },
-              ),
-            ],
-          ),
-          bottomNavigationBar: isLargeScreen
-              ? null
-              : NavigationBar(
-                  selectedIndex: _currentIndex,
-                  onDestinationSelected: (index) {
-                    setState(() => _currentIndex = index);
-                  },
-                  destinations: [
-                    const NavigationDestination(
-                      icon: Icon(Icons.cloud_upload_outlined),
-                      selectedIcon: Icon(Icons.cloud_upload),
-                      label: 'Upload',
-                    ),
-                    const NavigationDestination(
-                      icon: Icon(Icons.cloud_download_outlined),
-                      selectedIcon: Icon(Icons.cloud_download),
-                      label: 'Downloads',
-                    ),
-                    NavigationDestination(
-                      icon: Badge(
-                        isLabelVisible: activeTransfers.isNotEmpty,
-                        label: Text('${activeTransfers.length}'),
-                        child: const Icon(Icons.list_alt_outlined),
-                      ),
-                      selectedIcon: Badge(
-                        isLabelVisible: activeTransfers.isNotEmpty,
-                        label: Text('${activeTransfers.length}'),
-                        child: const Icon(Icons.list_alt),
-                      ),
-                      label: 'Queue',
-                    ),
                   ],
                 ),
-        );
-      },
+                const SizedBox(width: 8),
+              ],
+            ),
+            body: SafeArea(
+              top: false,
+              bottom: false,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: isLargeScreen
+                        ? _buildTabletLayout()
+                        : _screens[_currentIndex],
+                  ),
+                  // Persistent floating summary banner accessible anywhere in the app
+                  TransferSummaryBanner(
+                    onTap: () {
+                      _scaffoldKey.currentState?.openEndDrawer();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            bottomNavigationBar: isLargeScreen
+                ? null
+                : SafeArea(
+                    top: false,
+                    child: NavigationBar(
+                      selectedIndex: _currentIndex,
+                      onDestinationSelected: (index) {
+                        setState(() => _currentIndex = index);
+                      },
+                      destinations: [
+                        const NavigationDestination(
+                          icon: Icon(Icons.cloud_upload_outlined),
+                          selectedIcon: Icon(Icons.cloud_upload),
+                          label: 'Upload',
+                        ),
+                        const NavigationDestination(
+                          icon: Icon(Icons.cloud_download_outlined),
+                          selectedIcon: Icon(Icons.cloud_download),
+                          label: 'Downloads',
+                        ),
+                        NavigationDestination(
+                          icon: Badge(
+                            isLabelVisible: activeTransfers.isNotEmpty,
+                            label: Text('${activeTransfers.length}'),
+                            child: const Icon(Icons.list_alt_outlined),
+                          ),
+                          selectedIcon: Badge(
+                            isLabelVisible: activeTransfers.isNotEmpty,
+                            label: Text('${activeTransfers.length}'),
+                            child: const Icon(Icons.list_alt),
+                          ),
+                          label: 'Queue',
+                        ),
+                      ],
+                    ),
+                  ),
+          );
+        },
+      ),
     );
   }
 
