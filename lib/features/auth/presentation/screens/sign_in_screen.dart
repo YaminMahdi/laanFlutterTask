@@ -18,19 +18,38 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
+  String? _usernameError;
+  String? _passwordError;
+
   @override
   void initState() {
     super.initState();
-    _usernameController.addListener(_onFieldChanged);
-    _passwordController.addListener(_onFieldChanged);
+    _usernameController.addListener(_onUsernameChanged);
+    _passwordController.addListener(_onPasswordChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(authNotifierProvider.notifier).clearError();
+        setState(() {
+          _usernameError = null;
+          _passwordError = null;
+        });
       }
     });
   }
 
-  void _onFieldChanged() {
+  void _onUsernameChanged() {
+    if (_usernameError != null) {
+      setState(() => _usernameError = null);
+    }
+    if (ref.read(authNotifierProvider).errorMessage != null) {
+      ref.read(authNotifierProvider.notifier).clearError();
+    }
+  }
+
+  void _onPasswordChanged() {
+    if (_passwordError != null) {
+      setState(() => _passwordError = null);
+    }
     if (ref.read(authNotifierProvider).errorMessage != null) {
       ref.read(authNotifierProvider.notifier).clearError();
     }
@@ -38,20 +57,51 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   @override
   void dispose() {
-    _usernameController.removeListener(_onFieldChanged);
-    _passwordController.removeListener(_onFieldChanged);
+    _usernameController.removeListener(_onUsernameChanged);
+    _passwordController.removeListener(_onPasswordChanged);
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   void _fillDemoCredentials() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _usernameError = null;
+      _passwordError = null;
+    });
     _usernameController.text = 'mahdi';
     _passwordController.text = 'mahdii';
   }
 
+  bool _validateForm() {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    String? usernameError;
+    String? passwordError;
+
+    if (username.isEmpty) {
+      usernameError = 'Username is required';
+    } else if (username.length < 3) {
+      usernameError = 'Username must be at least 3 characters';
+    }
+
+    if (password.isEmpty) {
+      passwordError = 'Password is required';
+    }
+
+    setState(() {
+      _usernameError = usernameError;
+      _passwordError = passwordError;
+    });
+
+    return usernameError == null && passwordError == null;
+  }
+
   Future<void> _handleSignIn() async {
-    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    if (!_validateForm()) return;
 
     final success = await ref.read(authNotifierProvider.notifier).login(
           _usernameController.text.trim(),
@@ -94,8 +144,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       );
     }
 
-    return Scaffold(
-      body: SafeArea(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
+        body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -143,20 +196,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     // Username
                     TextFormField(
                       controller: _usernameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Username',
                         hintText: 'Enter your username',
-                        prefixIcon: Icon(Icons.person_outline),
+                        prefixIcon: const Icon(Icons.person_outline),
+                        errorText: _usernameError,
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Username is required';
-                        }
-                        if (value.trim().length < 3) {
-                          return 'Username must be at least 3 characters';
-                        }
-                        return null;
-                      },
+                      onChanged: (_) => _onUsernameChanged(),
                     ),
                     const SizedBox(height: 16),
                     // Password
@@ -167,6 +213,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         labelText: 'Password',
                         hintText: 'Enter your password',
                         prefixIcon: const Icon(Icons.lock_outline),
+                        errorText: _passwordError,
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword
@@ -178,12 +225,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           },
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Password is required';
-                        }
-                        return null;
-                      },
+                      onChanged: (_) => _onPasswordChanged(),
                     ),
                     const SizedBox(height: 8),
                     // Demo helper button
@@ -221,7 +263,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     SizedBox(
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: authState.isLoading ? null : _handleSignIn,
+                        onPressed: authState.isLoading
+                            ? null
+                            : () {
+                                FocusScope.of(context).unfocus();
+                                _handleSignIn();
+                              },
                         child: authState.isLoading
                             ? const SizedBox(
                                 width: 22,
@@ -236,8 +283,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     ),
                     const SizedBox(height: 20),
                     // Switch to Sign Up
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           "Don't have an account? ",
@@ -246,9 +294,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         TextButton(
                           onPressed: () async {
                             ref.read(authNotifierProvider.notifier).clearError();
+                            setState(() {
+                              _usernameError = null;
+                              _passwordError = null;
+                            });
                             await context.router.push(const SignUpRoute());
                             if (mounted) {
                               ref.read(authNotifierProvider.notifier).clearError();
+                              setState(() {
+                                _usernameError = null;
+                                _passwordError = null;
+                              });
                             }
                           },
                           child: const Text('Sign Up'),
@@ -261,6 +317,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
