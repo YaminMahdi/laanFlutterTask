@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/database/app_database.dart';
 import 'core/notifications/notification_service.dart';
@@ -9,13 +10,26 @@ import 'features/transfer/presentation/providers/transfer_providers.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Edge-to-edge system UI styling
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
+    ),
+  );
+
   // Initialize SQLite database
   final database = await AppDatabase.create();
 
   // Initialize system tray notification service
   await NotificationService.instance.initialize(
     onNotificationTapped: (payload) {
-      // Tapping notification brings app to foreground and can navigate
+      // Tapping notification brings app to foreground
     },
   );
 
