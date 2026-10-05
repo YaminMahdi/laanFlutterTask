@@ -39,7 +39,7 @@ class AuthNotifier extends Notifier<AuthState> {
     // Check pre-seeded / stored credentials
     final storage = ref.watch(tokenStorageProvider);
     _initializeAuth(storage);
-    return const AuthState(isLoggedIn: true, username: 'mahdi');
+    return const AuthState(isLoggedIn: false);
   }
 
   Future<void> _initializeAuth(dynamic storage) async {

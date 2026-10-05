@@ -8,10 +8,8 @@ abstract class TokenStorage {
 }
 
 class InMemoryTokenStorage implements TokenStorage {
-  // Pre-seed with the provided assessment token / credentials
-  String? _token =
-      'eyJ1aWQiOjksInVzZXIiOiJtYWhkaSIsImV4cCI6MTc5MTI0NzM0OX0.MjzgE_6ghBDHAXRyrj_yoFZ6G_fU08OPbmL0wlcja2M';
-  String? _username = 'mahdi';
+  String? _token;
+  String? _username;
 
   @override
   Future<String?> getToken() async => _token;
