@@ -51,7 +51,7 @@ class PublicDownloadStorage {
         'resolveContentUri',
         <String, dynamic>{
           'uri': uriOrPath,
-          if (fileName != null) 'fileName': fileName,
+          'fileName': ?fileName,
         },
       );
       if (resolved != null &&

@@ -26,6 +26,16 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
   String _searchQuery = '';
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (mounted) {
+        ref.read(fileListProvider.notifier).refresh();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();

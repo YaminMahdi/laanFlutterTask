@@ -132,15 +132,46 @@ void main() {
       expect(fakeQueue.downloadCalls.first['fileName'], equals('inventory.csv'));
       expect(fakeQueue.downloadCalls.first['originalName'], equals('Inventory 2026.csv'));
     });
+
+    testWidgets('automatically calls refresh on fileListProvider when navigating to DownloadScreen',
+        (tester) async {
+      final fakeNotifier = _FakeFileListNotifier([]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            fileListProvider.overrideWith(() => fakeNotifier),
+            transferQueueProvider.overrideWith(
+              () => _FakeTransferQueueNotifier([]),
+            ),
+            downloadedFilesMapProvider.overrideWithValue({}),
+          ],
+          child: const MaterialApp(
+            home: DownloadScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(fakeNotifier.refreshCallCount, greaterThanOrEqualTo(1));
+    });
   });
 }
 
 class _FakeFileListNotifier extends FileListNotifier {
   _FakeFileListNotifier(this._initial);
   final List<RemoteFileItem> _initial;
+  int refreshCallCount = 0;
 
   @override
   Future<List<RemoteFileItem>> build() async => _initial;
+
+  @override
+  Future<void> refresh() async {
+    refreshCallCount++;
+    state = AsyncValue.data(_initial);
+  }
 }
 
 class _FakeTransferQueueNotifier extends TransferQueueNotifier {

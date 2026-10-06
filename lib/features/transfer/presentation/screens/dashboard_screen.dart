@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../auth/presentation/auth_notifier.dart';
+import '../notifiers/file_list_notifier.dart';
 import '../notifiers/transfer_queue_notifier.dart';
 import '../widgets/pos_user_drawer.dart';
 import '../widgets/transfer_summary_banner.dart';
@@ -37,6 +38,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     'Catalog & Downloads',
     'Transfer Manager'
   ];
+
+  void _onDestinationSelected(int index) {
+    if (index == 1) {
+      ref.read(fileListProvider.notifier).refresh();
+    }
+    setState(() => _currentIndex = index);
+  }
 
   void _onPopInvokedWithResult(bool didPop, dynamic result) {
     if (didPop) return;
@@ -153,9 +161,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     top: false,
                     child: NavigationBar(
                       selectedIndex: _currentIndex,
-                      onDestinationSelected: (index) {
-                        setState(() => _currentIndex = index);
-                      },
+                      onDestinationSelected: _onDestinationSelected,
                       destinations: [
                         const NavigationDestination(
                           icon: Icon(Icons.cloud_upload_outlined),
@@ -194,9 +200,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       children: [
         NavigationRail(
           selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            setState(() => _currentIndex = index);
-          },
+          onDestinationSelected: _onDestinationSelected,
           labelType: NavigationRailLabelType.all,
           leading: const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
