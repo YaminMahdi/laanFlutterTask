@@ -1,41 +1,8 @@
 import 'package:dio/dio.dart';
 import '../../../core/constants/api_constants.dart';
+import 'auth_response.dart';
 
-class AuthResponse {
-  const AuthResponse({
-    required this.success,
-    this.token,
-    this.tokenType,
-    this.username,
-    this.userId,
-    this.errorMessage,
-  });
-
-  final bool success;
-  final String? token;
-  final String? tokenType;
-  final String? username;
-  final int? userId;
-  final String? errorMessage;
-
-  factory AuthResponse.fromJson(Map<String, dynamic> json) {
-    if (json['success'] == true) {
-      final user = json['user'] as Map<String, dynamic>?;
-      return AuthResponse(
-        success: true,
-        token: json['token'] as String?,
-        tokenType: json['token_type'] as String?,
-        username: user?['username'] as String?,
-        userId: user?['id'] as int?,
-      );
-    } else {
-      return AuthResponse(
-        success: false,
-        errorMessage: json['error'] as String? ?? 'Authentication failed',
-      );
-    }
-  }
-}
+export 'auth_response.dart';
 
 class AuthApiService {
   AuthApiService(this._dio);

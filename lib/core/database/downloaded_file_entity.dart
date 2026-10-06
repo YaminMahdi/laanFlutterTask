@@ -1,80 +1,27 @@
-class DownloadedFileEntity {
-  const DownloadedFileEntity({
-    required this.fileId,
-    required this.fileName,
-    required this.originalName,
-    required this.localPath,
-    required this.fileSize,
-    required this.downloadedAt,
-    this.fileType,
-  });
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  final int fileId;
-  final String fileName;
-  final String originalName;
-  final String localPath;
-  final int fileSize;
-  final int downloadedAt; // epoch milliseconds
-  final String? fileType;
+part 'downloaded_file_entity.freezed.dart';
+part 'downloaded_file_entity.g.dart';
 
-  Map<String, dynamic> toMap() {
-    return {
-      'fileId': fileId,
-      'fileName': fileName,
-      'originalName': originalName,
-      'localPath': localPath,
-      'fileSize': fileSize,
-      'fileType': fileType,
-      'downloadedAt': downloadedAt,
-    };
-  }
+@freezed
+abstract class DownloadedFileEntity with _$DownloadedFileEntity {
+  const DownloadedFileEntity._();
 
-  factory DownloadedFileEntity.fromMap(Map<String, dynamic> map) {
-    return DownloadedFileEntity(
-      fileId: (map['fileId'] as num).toInt(),
-      fileName: map['fileName'] as String,
-      originalName: map['originalName'] as String,
-      localPath: map['localPath'] as String,
-      fileSize: (map['fileSize'] as num).toInt(),
-      fileType: map['fileType'] as String?,
-      downloadedAt: (map['downloadedAt'] as num).toInt(),
-    );
-  }
-
-  DownloadedFileEntity copyWith({
-    int? fileId,
-    String? fileName,
-    String? originalName,
-    String? localPath,
-    int? fileSize,
+  const factory DownloadedFileEntity({
+    required int fileId,
+    required String fileName,
+    required String originalName,
+    required String localPath,
+    required int fileSize,
+    required int downloadedAt,
     String? fileType,
-    int? downloadedAt,
-  }) {
-    return DownloadedFileEntity(
-      fileId: fileId ?? this.fileId,
-      fileName: fileName ?? this.fileName,
-      originalName: originalName ?? this.originalName,
-      localPath: localPath ?? this.localPath,
-      fileSize: fileSize ?? this.fileSize,
-      fileType: fileType ?? this.fileType,
-      downloadedAt: downloadedAt ?? this.downloadedAt,
-    );
-  }
+  }) = _DownloadedFileEntity;
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is DownloadedFileEntity &&
-          runtimeType == other.runtimeType &&
-          fileId == other.fileId &&
-          fileName == other.fileName &&
-          localPath == other.localPath &&
-          fileSize == other.fileSize;
+  factory DownloadedFileEntity.fromJson(Map<String, dynamic> json) =>
+      _$DownloadedFileEntityFromJson(json);
 
-  @override
-  int get hashCode =>
-      fileId.hashCode ^
-      fileName.hashCode ^
-      localPath.hashCode ^
-      fileSize.hashCode;
+  Map<String, dynamic> toMap() => toJson();
+
+  factory DownloadedFileEntity.fromMap(Map<String, dynamic> map) =>
+      DownloadedFileEntity.fromJson(map);
 }

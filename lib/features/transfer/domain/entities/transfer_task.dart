@@ -1,38 +1,29 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'transfer_status.dart';
 import 'transfer_type.dart';
 
-class TransferTask {
-  const TransferTask({
-    required this.id,
-    required this.fileName,
-    required this.originalName,
-    required this.type,
-    required this.status,
-    required this.bytesTransferred,
-    required this.totalBytes,
-    required this.createdAt,
-    this.fileUrl,
-    this.localPath,
-    this.speedBytesPerSecond = 0,
-    this.errorMessage,
-    this.completedAt,
-    this.fileId,
-  });
+part 'transfer_task.freezed.dart';
 
-  final String id;
-  final String fileName;
-  final String originalName;
-  final String? fileUrl;
-  final String? localPath;
-  final TransferType type;
-  final TransferStatus status;
-  final int bytesTransferred;
-  final int totalBytes;
-  final int speedBytesPerSecond;
-  final String? errorMessage;
-  final DateTime createdAt;
-  final DateTime? completedAt;
-  final int? fileId;
+@freezed
+abstract class TransferTask with _$TransferTask {
+  const TransferTask._();
+
+  const factory TransferTask({
+    required String id,
+    required String fileName,
+    required String originalName,
+    required TransferType type,
+    required TransferStatus status,
+    required int bytesTransferred,
+    required int totalBytes,
+    required DateTime createdAt,
+    String? fileUrl,
+    String? localPath,
+    @Default(0) int speedBytesPerSecond,
+    String? errorMessage,
+    DateTime? completedAt,
+    int? fileId,
+  }) = _TransferTask;
 
   double get progress {
     if (totalBytes <= 0) return 0.0;
@@ -67,57 +58,4 @@ class TransferTask {
     }
     return '${size.toStringAsFixed(size < 10 && i > 0 ? 1 : 0)} ${suffixes[i]}';
   }
-
-  TransferTask copyWith({
-    String? id,
-    String? fileName,
-    String? originalName,
-    String? fileUrl,
-    String? localPath,
-    TransferType? type,
-    TransferStatus? status,
-    int? bytesTransferred,
-    int? totalBytes,
-    int? speedBytesPerSecond,
-    String? errorMessage,
-    DateTime? createdAt,
-    DateTime? completedAt,
-    int? fileId,
-  }) {
-    return TransferTask(
-      id: id ?? this.id,
-      fileName: fileName ?? this.fileName,
-      originalName: originalName ?? this.originalName,
-      fileUrl: fileUrl ?? this.fileUrl,
-      localPath: localPath ?? this.localPath,
-      type: type ?? this.type,
-      status: status ?? this.status,
-      bytesTransferred: bytesTransferred ?? this.bytesTransferred,
-      totalBytes: totalBytes ?? this.totalBytes,
-      speedBytesPerSecond: speedBytesPerSecond ?? this.speedBytesPerSecond,
-      errorMessage: errorMessage ?? this.errorMessage,
-      createdAt: createdAt ?? this.createdAt,
-      completedAt: completedAt ?? this.completedAt,
-      fileId: fileId ?? this.fileId,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is TransferTask &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          status == other.status &&
-          bytesTransferred == other.bytesTransferred &&
-          totalBytes == other.totalBytes &&
-          speedBytesPerSecond == other.speedBytesPerSecond;
-
-  @override
-  int get hashCode =>
-      id.hashCode ^
-      status.hashCode ^
-      bytesTransferred.hashCode ^
-      totalBytes.hashCode ^
-      speedBytesPerSecond.hashCode;
 }

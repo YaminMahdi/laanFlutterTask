@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import '../../../../core/database/downloaded_file_entity.dart';
 import '../../../../core/storage/public_download_storage.dart';

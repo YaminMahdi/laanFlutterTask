@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/database/downloaded_file_dao.dart';
 import '../../../../core/database/downloaded_file_entity.dart';

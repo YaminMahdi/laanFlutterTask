@@ -1,48 +1,14 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../transfer/presentation/providers/transfer_providers.dart';
 import '../data/token_storage.dart';
+import 'auth_state.dart';
 
-class AuthState {
-  const AuthState({
-    required this.isLoggedIn,
-    this.username,
-    this.token,
-    this.isLoading = false,
-    this.isInitialized = false,
-    this.errorMessage,
-  });
-
-  final bool isLoggedIn;
-  final String? username;
-  final String? token;
-  final bool isLoading;
-  final bool isInitialized;
-  final String? errorMessage;
-
-  AuthState copyWith({
-    bool? isLoggedIn,
-    String? username,
-    String? token,
-    bool? isLoading,
-    bool? isInitialized,
-    String? errorMessage,
-    bool clearError = false,
-  }) {
-    return AuthState(
-      isLoggedIn: isLoggedIn ?? this.isLoggedIn,
-      username: username ?? this.username,
-      token: token ?? this.token,
-      isLoading: isLoading ?? this.isLoading,
-      isInitialized: isInitialized ?? this.isInitialized,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-    );
-  }
-}
+export 'auth_state.dart';
 
 class AuthNotifier extends Notifier<AuthState> {
   void clearError() {
     if (state.errorMessage != null) {
-      state = state.copyWith(clearError: true);
+      state = state.copyWith(errorMessage: null);
     }
   }
 
@@ -73,7 +39,7 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<bool> login(String username, String password) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(isLoading: true, errorMessage: null);
     final authService = ref.read(authApiServiceProvider);
     final storage = ref.read(tokenStorageProvider);
 
@@ -101,7 +67,7 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<bool> register(String username, String password) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(isLoading: true, errorMessage: null);
     final authService = ref.read(authApiServiceProvider);
     final storage = ref.read(tokenStorageProvider);
 

@@ -1,30 +1,19 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-class PublicDownloadedFile {
-  const PublicDownloadedFile({
-    required this.path,
-    required this.size,
-    this.uri,
-  });
+part 'public_download_storage.freezed.dart';
 
-  /// Android:
-  ///   /storage/emulated/0/Download/file.ext
-  ///
-  /// Windows/Linux/macOS:
-  ///   /home/user/Downloads/file.ext
-  ///
-  /// iOS:
-  ///   /.../Documents/file.ext
-  final String path;
-
-  /// Optional Android content URI (e.g. content://media/external/downloads/...)
-  final String? uri;
-
-  final int size;
+@freezed
+abstract class PublicDownloadedFile with _$PublicDownloadedFile {
+  const factory PublicDownloadedFile({
+    required String path,
+    required int size,
+    String? uri,
+  }) = _PublicDownloadedFile;
 }
 
 class PublicDownloadStorage {
