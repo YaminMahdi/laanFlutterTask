@@ -34,9 +34,7 @@ class _TransferQueueScreenState extends ConsumerState<TransferQueueScreen> {
       return true;
     }).toList();
 
-    final canPop = ModalRoute.of(context)?.canPop ?? false;
-
-    final content = Center(
+    return Scaffold(body: Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 860),
         child: Column(
@@ -251,28 +249,7 @@ class _TransferQueueScreenState extends ConsumerState<TransferQueueScreen> {
           ],
         ),
       ),
-    );
-
-    if (canPop) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Transfer Manager'),
-          actions: [
-            if (completedCount > 0)
-              IconButton(
-                icon: const Icon(Icons.cleaning_services_outlined),
-                tooltip: 'Clear Finished Transfers',
-                onPressed: () => notifier.clearCompleted(),
-              ),
-          ],
-        ),
-        body: content,
-      );
-    }
-
-    return Scaffold(
-      body: content,
-    );
+    ));
   }
 
   Widget _buildStatItem({

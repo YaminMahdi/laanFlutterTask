@@ -1,6 +1,7 @@
 package com.laantech.pos.laan_task
 
 import android.content.ContentValues
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -56,6 +57,7 @@ class MainActivity : FlutterActivity() {
 
                         result.success(
                             mapOf(
+                                "path" to output.path,
                                 "uri" to output.uri,
                                 "size" to output.size
                             )
@@ -63,6 +65,34 @@ class MainActivity : FlutterActivity() {
                     } catch (e: Exception) {
                         result.error(
                             "DOWNLOAD_ERROR",
+                            e.message,
+                            null
+                        )
+                    }
+                }
+
+                "resolveContentUri" -> {
+                    val uriString =
+                        call.argument<String>("uri")
+
+                    val fallbackFileName =
+                        call.argument<String>("fileName")
+
+                    if (uriString == null) {
+                        result.error(
+                            "INVALID_ARGUMENT",
+                            "uri is required",
+                            null
+                        )
+                        return@setMethodCallHandler
+                    }
+
+                    try {
+                        val path = resolveContentUriToPath(uriString, fallbackFileName)
+                        result.success(path)
+                    } catch (e: Exception) {
+                        result.error(
+                            "RESOLVE_ERROR",
                             e.message,
                             null
                         )
@@ -77,6 +107,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private data class DownloadResult(
+        val path: String,
         val uri: String,
         val size: Long
     )
@@ -217,7 +248,46 @@ class MainActivity : FlutterActivity() {
             // Source is no longer needed.
             sourceFile.delete()
 
+            var realPath: String? = null
+            try {
+                val projection = arrayOf(
+                    MediaStore.MediaColumns.DATA,
+                    MediaStore.MediaColumns.DISPLAY_NAME
+                )
+                resolver.query(uri, projection, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val dataIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                        if (dataIndex != -1) {
+                            val data = cursor.getString(dataIndex)
+                            if (!data.isNullOrBlank()) {
+                                realPath = data
+                            }
+                        }
+                        if (realPath.isNullOrBlank()) {
+                            val nameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                            if (nameIndex != -1) {
+                                val actualName = cursor.getString(nameIndex)
+                                if (!actualName.isNullOrBlank()) {
+                                    val downloadDir = Environment.getExternalStoragePublicDirectory(
+                                        Environment.DIRECTORY_DOWNLOADS
+                                    )
+                                    realPath = File(downloadDir, actualName).absolutePath
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            if (realPath.isNullOrBlank()) {
+                val downloadDir = Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOWNLOADS
+                )
+                realPath = File(downloadDir, fileName).absolutePath
+            }
+
             return DownloadResult(
+                path = realPath,
                 uri = uri.toString(),
                 size = size
             )
@@ -286,9 +356,70 @@ class MainActivity : FlutterActivity() {
         sourceFile.delete()
 
         return DownloadResult(
+            path = destination.absolutePath,
             uri = destination.absolutePath,
             size = size
         )
+    }
+
+    private fun resolveContentUriToPath(
+        uriString: String,
+        fallbackFileName: String?
+    ): String? {
+        if (!uriString.startsWith("content://")) {
+            return uriString
+        }
+
+        try {
+            val uri = Uri.parse(uriString)
+            val projection = arrayOf(
+                MediaStore.MediaColumns.DATA,
+                MediaStore.MediaColumns.DISPLAY_NAME
+            )
+
+            contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val dataIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                    if (dataIndex != -1) {
+                        val data = cursor.getString(dataIndex)
+                        if (!data.isNullOrBlank()) {
+                            val file = File(data)
+                            if (file.exists()) {
+                                return file.absolutePath
+                            }
+                        }
+                    }
+
+                    val nameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                    if (nameIndex != -1) {
+                        val name = cursor.getString(nameIndex)
+                        if (!name.isNullOrBlank()) {
+                            val downloadDir = Environment.getExternalStoragePublicDirectory(
+                                Environment.DIRECTORY_DOWNLOADS
+                            )
+                            val file = File(downloadDir, name)
+                            if (file.exists()) {
+                                return file.absolutePath
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        // Fallback using fallbackFileName if available
+        if (!fallbackFileName.isNullOrBlank()) {
+            val downloadDir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS
+            )
+            val file = File(downloadDir, fallbackFileName)
+            if (file.exists()) {
+                return file.absolutePath
+            }
+            return file.absolutePath
+        }
+
+        return null
     }
 
     private fun getMimeType(

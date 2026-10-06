@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import '../storage/public_download_storage.dart';
 import 'downloaded_file_dao.dart';
 import 'transfer_dao.dart';
 
@@ -90,7 +93,67 @@ class AppDatabase {
       },
     );
 
+    // Self-healing migration for existing databases with content:// URIs
+    await _healLegacyContentUris(db);
+
     return AppDatabase._(db);
+  }
+
+  static Future<void> _healLegacyContentUris(Database db) async {
+    if (!Platform.isAndroid) return;
+    try {
+      final downloadedRows = await db.query(
+        'downloaded_files',
+        where: "localPath LIKE 'content://%'",
+      );
+      for (final row in downloadedRows) {
+        final fileId = row['fileId'] as int;
+        final localPath = row['localPath'] as String;
+        final fileName = row['fileName'] as String;
+
+        final resolved = await PublicDownloadStorage.resolveLocalPath(
+          uriOrPath: localPath,
+          fileName: fileName,
+        );
+        if (resolved != null &&
+            resolved.isNotEmpty &&
+            !resolved.startsWith('content://')) {
+          await db.update(
+            'downloaded_files',
+            {'localPath': resolved},
+            where: 'fileId = ?',
+            whereArgs: [fileId],
+          );
+        }
+      }
+
+      final transferRows = await db.query(
+        'transfers',
+        where: "localPath LIKE 'content://%'",
+      );
+      for (final row in transferRows) {
+        final id = row['id'] as String;
+        final localPath = row['localPath'] as String;
+        final fileName = row['fileName'] as String;
+
+        final resolved = await PublicDownloadStorage.resolveLocalPath(
+          uriOrPath: localPath,
+          fileName: fileName,
+        );
+        if (resolved != null &&
+            resolved.isNotEmpty &&
+            !resolved.startsWith('content://')) {
+          await db.update(
+            'transfers',
+            {'localPath': resolved},
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        }
+      }
+    } catch (_) {
+      // Non-blocking self-healing
+    }
   }
 
   Future<void> close() => _database.close();

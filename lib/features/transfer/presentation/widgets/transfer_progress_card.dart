@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:open_filex/open_filex.dart';
+import '../../../../core/storage/public_download_storage.dart';
 import '../../domain/entities/transfer_status.dart';
 import '../../domain/entities/transfer_task.dart';
 import '../../domain/entities/transfer_type.dart';
@@ -46,9 +47,20 @@ class TransferProgressCard extends StatelessWidget {
   }
 
   void _openFile(BuildContext context) async {
-    if (task.localPath != null && await File(task.localPath!).exists()) {
+    var pathToOpen = task.localPath;
+    if (pathToOpen != null && !await File(pathToOpen).exists() && Platform.isAndroid) {
+      final resolved = await PublicDownloadStorage.resolveLocalPath(
+        uriOrPath: pathToOpen,
+        fileName: task.fileName,
+      );
+      if (resolved != null && await File(resolved).exists()) {
+        pathToOpen = resolved;
+      }
+    }
+
+    if (pathToOpen != null && await File(pathToOpen).exists()) {
       try {
-        final result = await OpenFilex.open(task.localPath!);
+        final result = await OpenFilex.open(pathToOpen);
         if (result.type != ResultType.done && context.mounted) {
           final msg = result.type == ResultType.noAppToOpen
               ? 'No application found to open this file.'

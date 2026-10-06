@@ -3,6 +3,8 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
+import '../../../../core/database/downloaded_file_entity.dart';
+import '../../../../core/storage/public_download_storage.dart';
 import '../../domain/entities/remote_file_item.dart';
 import '../../domain/entities/transfer_type.dart';
 import '../notifiers/file_list_notifier.dart';
@@ -29,8 +31,34 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
     super.dispose();
   }
 
-  Future<void> _openDownloadedFile(BuildContext context, String localPath) async {
-    final file = File(localPath);
+  bool _checkIsDownloaded(DownloadedFileEntity entity) {
+    if (File(entity.localPath).existsSync()) {
+      return true;
+    }
+    if (Platform.isAndroid && entity.localPath.startsWith('content://')) {
+      final fallbackPath = '/storage/emulated/0/Download/${entity.fileName}';
+      return File(fallbackPath).existsSync();
+    }
+    return false;
+  }
+
+  Future<void> _openDownloadedFile(
+    BuildContext context,
+    String localPath, {
+    String? fileName,
+  }) async {
+    var pathToOpen = localPath;
+    if (!await File(pathToOpen).exists() && Platform.isAndroid) {
+      final resolved = await PublicDownloadStorage.resolveLocalPath(
+        uriOrPath: pathToOpen,
+        fileName: fileName,
+      );
+      if (resolved != null && await File(resolved).exists()) {
+        pathToOpen = resolved;
+      }
+    }
+
+    final file = File(pathToOpen);
     if (!await file.exists()) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -41,7 +69,7 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
     }
 
     try {
-      final result = await OpenFilex.open(localPath);
+      final result = await OpenFilex.open(pathToOpen);
       if (result.type != ResultType.done && context.mounted) {
         final message = result.type == ResultType.noAppToOpen
             ? 'No application found to open this file type.'
@@ -270,7 +298,7 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
                       // Check if already downloaded
                       final downloadedEntity = downloadedFilesMap[file.id];
                       final isDownloaded = downloadedEntity != null &&
-                          File(downloadedEntity.localPath).existsSync();
+                          _checkIsDownloaded(downloadedEntity);
 
                       return FileItemCard(
                         file: file,
@@ -281,6 +309,7 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
                             ? () => _openDownloadedFile(
                                   context,
                                   downloadedEntity.localPath,
+                                  fileName: downloadedEntity.fileName,
                                 )
                             : null,
                         onDownload: () async {
@@ -288,6 +317,7 @@ class _DownloadScreenState extends ConsumerState<DownloadScreen> {
                             await _openDownloadedFile(
                               context,
                               downloadedEntity.localPath,
+                              fileName: downloadedEntity.fileName,
                             );
                             return;
                           }

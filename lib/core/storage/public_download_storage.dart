@@ -8,10 +8,11 @@ class PublicDownloadedFile {
   const PublicDownloadedFile({
     required this.path,
     required this.size,
+    this.uri,
   });
 
   /// Android:
-  ///   content://media/external/downloads/...
+  ///   /storage/emulated/0/Download/file.ext
   ///
   /// Windows/Linux/macOS:
   ///   /home/user/Downloads/file.ext
@@ -20,12 +21,54 @@ class PublicDownloadedFile {
   ///   /.../Documents/file.ext
   final String path;
 
+  /// Optional Android content URI (e.g. content://media/external/downloads/...)
+  final String? uri;
+
   final int size;
 }
 
 class PublicDownloadStorage {
   static const MethodChannel _channel =
   MethodChannel('public_download_storage');
+
+  /// Resolves a content URI or raw path to an actual filesystem path on Android.
+  static Future<String?> resolveLocalPath({
+    required String uriOrPath,
+    String? fileName,
+  }) async {
+    if (!Platform.isAndroid) {
+      return uriOrPath;
+    }
+
+    if (!uriOrPath.startsWith('content://')) {
+      if (File(uriOrPath).existsSync()) {
+        return uriOrPath;
+      }
+    }
+
+    try {
+      final resolved = await _channel.invokeMethod<String>(
+        'resolveContentUri',
+        <String, dynamic>{
+          'uri': uriOrPath,
+          if (fileName != null) 'fileName': fileName,
+        },
+      );
+      if (resolved != null &&
+          resolved.isNotEmpty &&
+          !resolved.startsWith('content://')) {
+        return resolved;
+      }
+    } catch (_) {}
+
+    // Fallback: check standard Android Download directory
+    if (fileName != null && fileName.isNotEmpty) {
+      final fallbackPath = '/storage/emulated/0/Download/$fileName';
+      return fallbackPath;
+    }
+
+    return uriOrPath;
+  }
 
   static Future<PublicDownloadedFile> moveToPublicDownloads({
     required String sourcePath,
@@ -47,8 +90,32 @@ class PublicDownloadStorage {
         );
       }
 
+      var resolvedPath = (result['path'] as String?)?.isNotEmpty == true
+          ? (result['path'] as String)
+          : (result['uri'] as String);
+
+      if (resolvedPath.startsWith('content://')) {
+        final fallback = '/storage/emulated/0/Download/$fileName';
+        if (File(fallback).existsSync()) {
+          resolvedPath = fallback;
+        } else {
+          final fromChannel = await resolveLocalPath(
+            uriOrPath: resolvedPath,
+            fileName: fileName,
+          );
+          if (fromChannel != null &&
+              fromChannel.isNotEmpty &&
+              !fromChannel.startsWith('content://')) {
+            resolvedPath = fromChannel;
+          } else {
+            resolvedPath = fallback;
+          }
+        }
+      }
+
       return PublicDownloadedFile(
-        path: result['uri'] as String,
+        path: resolvedPath,
+        uri: result['uri'] as String?,
         size: (result['size'] as num).toInt(),
       );
     }

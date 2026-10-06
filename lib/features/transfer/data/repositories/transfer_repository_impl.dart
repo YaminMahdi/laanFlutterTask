@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/database/downloaded_file_dao.dart';
 import '../../../../core/database/downloaded_file_entity.dart';
+import '../../../../core/storage/public_download_storage.dart';
 import '../../domain/entities/remote_file_item.dart';
 import '../../domain/entities/transfer_status.dart';
 import '../../domain/entities/transfer_task.dart';
@@ -83,7 +84,20 @@ class TransferRepositoryImpl implements TransferRepository {
     if (fileId != null) {
       final downloaded = await downloadedFileDao.getDownloadedFileById(fileId);
       if (downloaded != null) {
-        final localFile = File(downloaded.localPath);
+        var path = downloaded.localPath;
+        if (!await File(path).exists() && Platform.isAndroid) {
+          final resolved = await PublicDownloadStorage.resolveLocalPath(
+            uriOrPath: path,
+            fileName: downloaded.fileName,
+          );
+          if (resolved != null && await File(resolved).exists()) {
+            path = resolved;
+            await downloadedFileDao.insertDownloadedFile(
+              downloaded.copyWith(localPath: path),
+            );
+          }
+        }
+        final localFile = File(path);
         if (await localFile.exists()) {
           throw StateError('File is already downloaded: ${downloaded.originalName}');
         } else {
@@ -94,7 +108,20 @@ class TransferRepositoryImpl implements TransferRepository {
     } else {
       final downloaded = await downloadedFileDao.getDownloadedFileByName(fileName);
       if (downloaded != null) {
-        final localFile = File(downloaded.localPath);
+        var path = downloaded.localPath;
+        if (!await File(path).exists() && Platform.isAndroid) {
+          final resolved = await PublicDownloadStorage.resolveLocalPath(
+            uriOrPath: path,
+            fileName: downloaded.fileName,
+          );
+          if (resolved != null && await File(resolved).exists()) {
+            path = resolved;
+            await downloadedFileDao.insertDownloadedFile(
+              downloaded.copyWith(localPath: path),
+            );
+          }
+        }
+        final localFile = File(path);
         if (await localFile.exists()) {
           throw StateError('File is already downloaded: ${downloaded.originalName}');
         } else {
